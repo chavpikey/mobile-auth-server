@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>📱 移动授权管理</title>
+    
+    <!-- PWA支持 -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="授权管理">
+    
+    <style>
+        /* iOS Safari优化样式 */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f2f2f7;
+            color: #1c1c1e;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #C1272D 0%, #FF6B35 100%);
+            color: white;
+            padding: 20px 20px 30px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .status {
+            margin-top: 10px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .container {
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .request-card {
+            background: white;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid #e5e5ea;
+            transition: transform 0.2s ease;
+        }
+        
+        .request-card:active {
+            transform: scale(0.98);
+        }
+        
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        
+        .machine-code {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: #C1272D;
+            background: #fff2f0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            flex: 1;
+            margin-right: 10px;
+            word-break: break-all;
+        }
+        
+        .time-badge {
+            background: #007aff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .request-info {
+            margin-bottom: 20px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .info-label {
+            color: #8e8e93;
+            font-weight: 500;
+        }
+        
+        .info-value {
+            color: #1c1c1e;
+            font-weight: 600;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-approve {
+            background: #34c759;
+            color: white;
+        }
+        
+        .btn-approve:hover {
+            background: #30d158;
+        }
+        
+        .btn-reject {
+            background: #ff3b30;
+            color: white;
+        }
+        
+        .btn-reject:hover {
+            background: #ff453a;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .loading {
+            position: relative;
+        }
+        
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8e8e93;
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .refresh-btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: background 0.2s ease;
+        }
+        
+        .refresh-btn:hover {
+            background: #0056cc;
+        }
+        
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .expire-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .expire-option {
+            background: #f2f2f7;
+            color: #1c1c1e;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .expire-option.active {
+            background: #007aff;
+            color: white;
+        }
+        
+        .expire-option:active {
+            transform: scale(0.95);
+        }
+        
+        .toast {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
+        
+        /* 响应式适配 */
+        @media (max-width: 375px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .request-card {
+                padding: 16px;
+            }
+            
+            .machine-code {
+                font-size: 12px;
+            }
+        }
+        
+        /* 深色模式支持 */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #000000;
+                color: #ffffff;
+            }
+            
+            .request-card {
+                background: #1c1c1e;
+                border-color: #38383a;
+            }
+            
+            .machine-code {
+                background: #2c1810;
+                color: #ff6b47;
+            }
+            
+            .info-label {
+                color: #98989d;
+            }
+            
+            .info-value {
+                color: #ffffff;
+            }
+            
+            .expire-option {
+                background: #2c2c2e;
+                color: #ffffff;
+            }
+            
+            .empty-state {
+                color: #98989d;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📱 移动授权管理</h1>
+        <div class="status" id="statusText">正在加载...</div>
+    </div>
+    
+    <div class="container">
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button class="refresh-btn" onclick="loadRequests()" style="flex: 1;">🔄 刷新请求</button>
+            <button class="refresh-btn" onclick="forceSync()" style="flex: 1; background: #ff9500;">🔄 强制同步</button>
+            <button class="refresh-btn" onclick="showDebugInfo()" style="flex: 1; background: #9c27b0; font-size: 12px;">🔧 调试</button>
+        </div>
+        
+        <div id="requestList">
+            <!-- 请求列表将在这里显示 -->
+        </div>
+        
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">📭</div>
+            <p>暂无待处理的授权请求</p>
+            <p>如果桌面版刚处理过请求，请点击"强制同步"按钮</p>
+            <p>系统每30秒自动刷新</p>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        let selectedExpireHours = 720; // 默认30天
+        let isLoading = false;
+        
+        // 显示提示消息
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // 格式化时间
+        function formatTime(timeStr) {
+            try {
+                const date = new Date(timeStr);
+                const now = new Date();
+                const diff = now - date;
+                const minutes = Math.floor(diff / 60000);
+                
+                if (minutes < 1) return '刚刚';
+                if (minutes < 60) return `${minutes}分钟前`;
+                
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours}小时前`;
+                
+                const days = Math.floor(hours / 24);
+                return `${days}天前`;
+            } catch {
+                return timeStr;
+            }
+        }
+        
+        // 加载请求列表
+        async function loadRequests() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            document.getElementById('statusText').textContent = '正在加载请求...';
+            
+            // 创建超时控制器
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超时
+            
+            try {
+                const response = await fetch('/api/requests', {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayRequests(result.data);
+                    document.getElementById('statusText').textContent = 
+                        `共 ${result.data.length} 个待处理请求 | ${new Date().toLocaleTimeString()}`;
+                } else {
+                    throw new Error(result.error || '加载失败');
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('加载请求失败:', error);
+                
+                let errorMessage = '加载失败，请检查网络';
+                if (error.name === 'AbortError') {
+                    errorMessage = '请求超时，请检查网络连接';
+                } else if (error.message) {
+                    errorMessage = `加载失败: ${error.message}`;
+                }
+                
+                document.getElementById('statusText').textContent = errorMessage;
+                showToast(errorMessage);
+                
+                // 显示空状态
+                const listContainer = document.getElementById('requestList');
+                const emptyState = document.getElementById('emptyState');
+                listContainer.innerHTML = '';
+                emptyState.style.display = 'block';
+                
+            } finally {
+                isLoading = false;
+            }
+        }
+        
+        // 强制同步处理记录
+        async function forceSync() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            document.getElementById('statusText').textContent = '正在强制同步...';
+            
+            // 创建超时控制器
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20秒超时
+            
+            try {
+                const response = await fetch('/api/sync', {
+                    method: 'POST',
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayRequests(result.data);
+                    document.getElementById('statusText').textContent = 
+                        `强制同步成功！共 ${result.data.length} 个待处理请求，已处理 ${result.processed_count} 个 | ${new Date().toLocaleTimeString()}`;
+                    showToast(`🔄 同步成功: ${result.message}`);
+                } else {
+                    throw new Error(result.error || '同步失败');
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('强制同步失败:', error);
+                
+                let errorMessage = '同步失败，请检查网络';
+                if (error.name === 'AbortError') {
+                    errorMessage = '同步超时，请检查网络连接';
+                } else if (error.message) {
+                    errorMessage = `同步失败: ${error.message}`;
+                }
+                
+                document.getElementById('statusText').textContent = errorMessage;
+                showToast(errorMessage);
+                
+                // 显示空状态
+                const listContainer = document.getElementById('requestList');
+                const emptyState = document.getElementById('emptyState');
+                listContainer.innerHTML = '';
+                emptyState.style.display = 'block';
+                
+            } finally {
+                isLoading = false;
+            }
+        }
+        
+        // 显示调试信息
+        async function showDebugInfo() {
+            if (isLoading) return;
+            
+            try {
+                const response = await fetch('/api/debug');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const info = result.debug_info;
+                    let debugMsg = `🔧 系统调试信息\n\n`;
+                    debugMsg += `⏰ 当前时间: ${info.formatted_time}\n`;
+                    debugMsg += `⏱️ 时间戳: ${info.timestamp}\n\n`;
+                    debugMsg += `📋 已处理请求数: ${info.processed_requests_count}\n`;
+                    
+                    if (info.processed_requests_list && info.processed_requests_list.length > 0) {
+                        debugMsg += `📝 已处理列表: ${info.processed_requests_list.join(', ')}\n\n`;
+                    } else {
+                        debugMsg += `📝 已处理列表: 空\n\n`;
+                    }
+                    
+                    debugMsg += `🌐 Gitee仓库: ${info.gitee_config.repo}\n`;
+                    debugMsg += `🔑 Token长度: ${info.gitee_config.token_length}\n\n`;
+                    
+                    if (info.gitee_requests_folder) {
+                        const folder = info.gitee_requests_folder;
+                        debugMsg += `📁 请求文件夹状态: ${folder.status}\n`;
+                        if (folder.file_count !== undefined) {
+                            debugMsg += `📄 文件数量: ${folder.file_count}\n`;
+                            if (folder.files && folder.files.length > 0) {
+                                debugMsg += `📝 文件列表: ${folder.files.join(', ')}\n`;
+                            }
+                        } else if (folder.error) {
+                            debugMsg += `❌ 错误: ${folder.error}\n`;
+                        }
+                    }
+                    
+                    // 显示在弹窗中
+                    alert(debugMsg);
+                    
+                    // 同时在控制台输出详细信息
+                    console.log('🔧 调试信息:', result.debug_info);
+                } else {
+                    showToast(`调试信息获取失败: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('获取调试信息失败:', error);
+                showToast('获取调试信息失败，请检查网络');
+            }
+        }
+        
+        // 显示请求列表
+        function displayRequests(requests) {
+            const listContainer = document.getElementById('requestList');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (requests.length === 0) {
+                listContainer.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            listContainer.innerHTML = requests.map(req => `
+                <div class="request-card">
+                    <div class="request-header">
+                        <div class="machine-code">${req.machine_code}</div>
+                        <div class="time-badge">${formatTime(req.request_time)}</div>
+                    </div>
+                    
+                    <div class="request-info">
+                        <div class="info-row">
+                            <span class="info-label">计算机</span>
+                            <span class="info-value">${req.computer_name || 'N/A'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">用户</span>
+                            <span class="info-value">${req.username || 'N/A'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">系统</span>
+                            <span class="info-value">${req.system || 'N/A'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">请求时间</span>
+                            <span class="info-value">${req.request_time}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="expire-selector" id="expireSelector_${req.machine_code}">
+                        <button class="expire-option active" onclick="setExpireTime('${req.machine_code}', 168)">7天</button>
+                        <button class="expire-option" onclick="setExpireTime('${req.machine_code}', 720)">30天</button>
+                        <button class="expire-option" onclick="setExpireTime('${req.machine_code}', 2160)">90天</button>
+                        <button class="expire-option" onclick="setExpireTime('${req.machine_code}', 8760)">1年</button>
+                        <button class="expire-option" onclick="setExpireTime('${req.machine_code}', 87600)">永久</button>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-approve" 
+                                onclick="approveRequest('${req.machine_code}')"
+                                id="approveBtn_${req.machine_code}">
+                            ✅ 批准授权
+                        </button>
+                        <button class="btn btn-reject" 
+                                onclick="rejectRequest('${req.machine_code}')"
+                                id="rejectBtn_${req.machine_code}">
+                            ❌ 拒绝授权
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 设置到期时间
+        function setExpireTime(machineCode, hours) {
+            const selector = document.getElementById(`expireSelector_${machineCode}`);
+            const options = selector.querySelectorAll('.expire-option');
+            
+            options.forEach(option => {
+                option.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+            
+            // 存储选择的时间（可以用Map存储每个请求的选择）
+            if (!window.expireSelections) {
+                window.expireSelections = new Map();
+            }
+            window.expireSelections.set(machineCode, hours);
+        }
+        
+        // 批准授权
+        async function approveRequest(machineCode) {
+            const approveBtn = document.getElementById(`approveBtn_${machineCode}`);
+            const rejectBtn = document.getElementById(`rejectBtn_${machineCode}`);
+            
+            if (approveBtn.disabled) return;
+            
+            // 获取选择的到期时间
+            const expireHours = window.expireSelections?.get(machineCode) || 168; // 默认7天
+            
+            // 设置按钮状态
+            approveBtn.disabled = true;
+            rejectBtn.disabled = true;
+            approveBtn.classList.add('loading');
+            const originalText = approveBtn.textContent;
+            approveBtn.textContent = '';
+            
+            // 创建超时控制器
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+            
+            try {
+                const response = await fetch('/api/approve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        machine_code: machineCode,
+                        expire_hours: expireHours
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`✅ 授权成功: ${result.message}`);
+                    
+                    // 立即移除当前请求卡片
+                    const requestCard = approveBtn.closest('.request-card');
+                    if (requestCard) {
+                        requestCard.style.transition = 'all 0.3s ease';
+                        requestCard.style.opacity = '0';
+                        requestCard.style.transform = 'scale(0.95) translateY(-20px)';
+                        
+                        // 动画完成后移除元素
+                        setTimeout(() => {
+                            requestCard.remove();
+                            
+                            // 检查是否还有其他请求卡片
+                            const remainingCards = document.querySelectorAll('.request-card');
+                            if (remainingCards.length === 0) {
+                                // 没有其他请求了，显示空状态
+                                const emptyState = document.getElementById('emptyState');
+                                emptyState.style.display = 'block';
+                            }
+                        }, 300);
+                    }
+                    
+                    // 更新状态显示
+                    const currentCount = document.querySelectorAll('.request-card').length - 1; // -1 因为即将移除一个
+                    document.getElementById('statusText').textContent = 
+                        `处理成功！剩余 ${currentCount} 个待处理请求 | ${new Date().toLocaleTimeString()}`;
+                    
+                    // 1秒后刷新列表（防止有新请求）
+                    setTimeout(() => {
+                        loadRequests();
+                    }, 1000);
+                } else {
+                    throw new Error(result.error || '未知错误');
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('批准授权失败:', error);
+                
+                let errorMessage = '批准失败';
+                if (error.name === 'AbortError') {
+                    errorMessage = '请求超时，请检查网络连接';
+                } else if (error.message) {
+                    errorMessage = `批准失败: ${error.message}`;
+                }
+                
+                showToast(errorMessage);
+                
+                // 恢复按钮状态
+                restoreButtonState(approveBtn, rejectBtn, originalText);
+            }
+        }
+        
+        // 恢复按钮状态的辅助函数
+        function restoreButtonState(approveBtn, rejectBtn, originalText) {
+            try {
+                if (approveBtn) {
+                    approveBtn.disabled = false;
+                    approveBtn.classList.remove('loading');
+                    approveBtn.textContent = originalText || '✅ 批准授权';
+                }
+                if (rejectBtn) {
+                    rejectBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('恢复按钮状态失败:', error);
+                // 强制刷新页面作为后备方案
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        }
+        
+        // 拒绝授权
+        async function rejectRequest(machineCode) {
+            const approveBtn = document.getElementById(`approveBtn_${machineCode}`);
+            const rejectBtn = document.getElementById(`rejectBtn_${machineCode}`);
+            
+            if (rejectBtn.disabled) return;
+            
+            if (!confirm('确定要拒绝这个授权请求吗？')) {
+                return;
+            }
+            
+            // 设置按钮状态
+            approveBtn.disabled = true;
+            rejectBtn.disabled = true;
+            rejectBtn.classList.add('loading');
+            const originalText = rejectBtn.textContent;
+            rejectBtn.textContent = '';
+            
+            // 创建超时控制器
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+            
+            try {
+                const response = await fetch('/api/reject', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        machine_code: machineCode,
+                        reason: '授权请求被移动端管理员拒绝'
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`❌ 拒绝成功: ${result.message}`);
+                    
+                    // 立即移除当前请求卡片
+                    const requestCard = rejectBtn.closest('.request-card');
+                    if (requestCard) {
+                        requestCard.style.transition = 'all 0.3s ease';
+                        requestCard.style.opacity = '0';
+                        requestCard.style.transform = 'scale(0.95) translateY(-20px)';
+                        
+                        // 动画完成后移除元素
+                        setTimeout(() => {
+                            requestCard.remove();
+                            
+                            // 检查是否还有其他请求卡片
+                            const remainingCards = document.querySelectorAll('.request-card');
+                            if (remainingCards.length === 0) {
+                                // 没有其他请求了，显示空状态
+                                const emptyState = document.getElementById('emptyState');
+                                emptyState.style.display = 'block';
+                            }
+                        }, 300);
+                    }
+                    
+                    // 更新状态显示
+                    const currentCount = document.querySelectorAll('.request-card').length - 1; // -1 因为即将移除一个
+                    document.getElementById('statusText').textContent = 
+                        `处理成功！剩余 ${currentCount} 个待处理请求 | ${new Date().toLocaleTimeString()}`;
+                    
+                    // 1秒后刷新列表（防止有新请求）
+                    setTimeout(() => {
+                        loadRequests();
+                    }, 1000);
+                } else {
+                    throw new Error(result.error || '未知错误');
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('拒绝授权失败:', error);
+                
+                let errorMessage = '拒绝失败';
+                if (error.name === 'AbortError') {
+                    errorMessage = '请求超时，请检查网络连接';
+                } else if (error.message) {
+                    errorMessage = `拒绝失败: ${error.message}`;
+                }
+                
+                showToast(errorMessage);
+                
+                // 恢复按钮状态
+                restoreButtonState(rejectBtn, approveBtn, originalText);
+            }
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRequests();
+            
+            // 每30秒自动刷新
+            setInterval(loadRequests, 30000);
+            
+            // 处理页面可见性变化
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    loadRequests();
+                }
+            });
+        });
+        
+        // 注册Service Worker (PWA支持)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function(error) {
+                console.log('ServiceWorker注册失败:', error);
+            });
+        }
+    </script>
+</body>
+</html>
